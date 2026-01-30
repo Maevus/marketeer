@@ -52,12 +52,16 @@ def main():
 
 
 if __name__ == "__main__":
-    # Example usage
+    import sys
+    
+    # Get URL from command line argument or use default
+    url = sys.argv[1] if len(sys.argv) > 1 else "https://herdwatch.ie/"
+    
     graph = main()
     
-    # Example: Run the graph with a URL
+    # Run the graph with the URL
     initial_state = {
-        "url": "https://herdwatch.ie/",
+        "url": url,
         "raw_markdown": None,
         "company_name": None,
         "is_irish_sme": None,
@@ -68,6 +72,27 @@ if __name__ == "__main__":
         "outreach_draft": None
     }
     
-    # Uncomment to run:
+    print(f"\n🔍 Analyzing: {url}\n")
     result = graph.invoke(initial_state)
-    print(result)
+    
+    # Display results
+    print("\n" + "="*60)
+    print("ANALYSIS RESULTS")
+    print("="*60)
+    print(f"Company: {result.get('company_name', 'N/A')}")
+    print(f"Irish SME: {result.get('is_irish_sme', False)}")
+    print(f"Tech Stack: {', '.join(result.get('tech_stack', []))}")
+    print(f"Has Angular Debt: {result.get('has_angular_debt', False)}")
+    print(f"Grant Eligible: {result.get('grant_eligible', False)}")
+    print(f"Decision: {result.get('decision', 'IGNORE')}")
+    
+    if result.get("outreach_draft"):
+        print("\n" + "="*60)
+        print("OUTREACH EMAIL DRAFT")
+        print("="*60)
+        print(result.get("outreach_draft"))
+        print("="*60)
+    else:
+        print("\n⚠️  No outreach email generated (decision was IGNORE)")
+    
+    print()

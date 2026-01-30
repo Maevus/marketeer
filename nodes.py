@@ -55,7 +55,7 @@ def scout_node(state: MarketeerState) -> Dict[str, Any]:
 
 
 def analyst_node(state: MarketeerState) -> Dict[str, Any]:
-    """Analyst Node: Uses Gemini 2.5 Flash to analyze the markdown and determine eligibility."""
+    """Analyst Node: Uses Gemini 3 Flash to analyze the markdown and determine eligibility."""
     raw_markdown = state.get("raw_markdown")
     
     if not raw_markdown:
@@ -152,17 +152,70 @@ For decision:
 
 
 def outreach_node(state: MarketeerState) -> Dict[str, Any]:
-    """Outreach Node: Drafts a 3-sentence email to CTO if decision is PROCEED."""
+    """Outreach Node: Drafts a personalized email to CTO if decision is PROCEED."""
     decision = state.get("decision")
     company_name = state.get("company_name", "there")
+    tech_stack = state.get("tech_stack", [])
+    has_angular_debt = state.get("has_angular_debt", False)
     
     if decision != "PROCEED":
         return {
             "outreach_draft": None
         }
     
-    # Draft a no-nonsense 3-sentence email
-    outreach_draft = f"""Subject: 80% Grant Coverage for Angular Technical Debt Sprint
+    try:
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY not found in environment variables")
+        
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash",
+            google_api_key=api_key,
+            temperature=0.7  # Slightly higher for more natural email tone
+        )
+        
+        # Build context about the company
+        tech_context = ", ".join(tech_stack[:5]) if tech_stack else "your technology stack"
+        angular_context = "significant Angular technical debt" if has_angular_debt else "Angular in your stack"
+        
+        email_prompt = f"""Write a professional, concise 3-sentence email to the CTO of {company_name}.
+
+Context:
+- Company: {company_name}
+- Technologies: {tech_context}
+- Issue: {angular_context}
+- They qualify for Enterprise Ireland Digital Discovery Grant (80% coverage)
+
+Requirements:
+- Subject line: "80% Grant Coverage for Angular Technical Debt Sprint"
+- Opening: Address the CTO by company name
+- Body: Mention the 80% grant coverage, Angular technical debt, and sprint contract offer
+- Closing: Invite to a quick call
+- Tone: Professional, no-nonsense, value-focused
+- Length: Exactly 3 sentences (not counting greeting/closing)
+
+Format:
+Subject: [subject line]
+
+Hi [company name] CTO,
+
+[3-sentence email body]
+
+[closing question]"""
+        
+        response = llm.invoke(email_prompt)
+        outreach_draft = response.content.strip()
+        
+        return {
+            "outreach_draft": outreach_draft
+        }
+    
+    except Exception as e:
+        # Fallback to simple template if LLM fails
+        error_message = f"Email generation failed: {str(e)}"
+        print(f"WARNING: {error_message}, using fallback template")
+        
+        outreach_draft = f"""Subject: 80% Grant Coverage for Angular Technical Debt Sprint
 
 Hi {company_name} CTO,
 
@@ -171,7 +224,7 @@ We noticed your Angular technical debt and can help clear your backlog with a sp
 This grant applies to Manufacturing and Internationally Traded Services companies, and we specialize in rapid Angular modernization sprints.
 
 Interested in a quick call to discuss how we can leverage this grant to accelerate your technical roadmap?"""
-    
-    return {
-        "outreach_draft": outreach_draft
-    }
+        
+        return {
+            "outreach_draft": outreach_draft
+        }
